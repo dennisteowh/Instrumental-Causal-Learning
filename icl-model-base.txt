@@ -1,0 +1,790 @@
+//////////// BASE MODELS ////////////////
+
+////// Helper Functions //////
+  
+var addOp = function(x, y, op){ //add connector between 2 strings
+  return "(" + x + op + y + ")"  
+} 
+
+var cleanOut = function(arr){ //remove outer brackets
+  
+   var output = arr
+  
+   if (arr[0] == "(") {
+    
+    output.pop() 
+    output.shift()
+    return output
+     
+  } else {
+    
+    return output
+  }
+}
+
+var splitCause = function(belief){
+  
+  var beliefMod = belief.replaceAll("(", "")
+  var beliefMod = beliefMod.replaceAll(")", "")
+  
+  return beliefMod.split("|")
+  
+}
+
+var fullClose = function(arr){ // check if array has equal number of "(" and ")"
+  
+  var openArr = filter(function(x) { return x == "("; }, arr); 
+  var closeArr = filter(function(x) { return x == ")"; }, arr);
+  
+  if (openArr == null || closeArr == null){
+    
+    return false
+    
+  }
+  if (openArr.length == closeArr.length && arr[0] == "(" && arr[arr.length-1]==")") {
+    
+    return true
+    
+  } else {return false}
+}
+
+var getRoot = function(arr, n) { // get position of root connector
+  
+  var temp = arr.slice(0, arr.length - n)
+  
+  if(fullClose(temp) || n == 0){
+    
+    return temp.length // position of operator 
+    
+  } else {
+    getRoot(arr, n-1)
+  }
+}
+
+var evalOp = function(arg1, arg2, op) { //samples a logical action seq from proposition
+  
+  var arg1temp = arg1
+  var arg2temp = arg2
+  
+  if (op == "&"){
+    
+    if(arg1.length == 1 && arg2.length == 1){
+      var poss = arg1.concat(arg2)
+      return randomSort(poss)
+    } else {
+      return mixArray(arg1temp,arg2temp)
+    }
+  } else if (op == "|") {
+    
+    if(arg1.length == 1 && arg2.length == 1){
+      var poss = [arg1.concat(arg2), arg1, arg2] // 1/3 prob each
+      var roll = uniformDraw(poss)
+      return randomSort(roll)
+    } else {
+      
+      var poss = [mixArray(arg1temp,arg2temp), arg1, arg2]
+      return uniformDraw(poss)
+    }
+  } else {
+      return arg1.concat(arg2)
+  } 
+}
+
+
+var extract = function(pool, remove){
+  filter(function(x) { return x != remove; }, pool); 
+}
+
+var drawOther = function(pool, n){ //draw random other causes
+  
+  if (n > pool.length){
+    return drawOther(pool, pool.length)
+  } else if(n == 1){
+    return uniformDraw(pool)
+  } else {
+    var arg1 = uniformDraw(pool)
+    var poolNew = extract(pool, arg1)
+    return addOp(arg1, drawOther(poolNew, n-1), "|")
+  }
+}
+
+var addBel = function(belief, pool, tau){
+ 
+  if(inside(belief, pool)){
+     var ncause = Math.floor(sample(Exponential({a:tau}))) // number of other causes
+  //var ncause = Math.floor(sample(Poisson({mu:tau}))) // number of other causes
+  var poolOther = extract(pool, belief)
+  
+  if(ncause == 0){ // if no other causes
+    var belFinal = belief
+    return belFinal
+   } else { 
+    var belFinal = addOp(belief, drawOther(poolOther, ncause), "|")
+    return belFinal
+   }
+  }else {
+    return belief
+  }
+ 
+}
+  
+var randomSort = function(arr){ //randomly sort array
+  
+  var getRandomFromBucket = function(bucket) {
+   var randomIndex = Math.floor(Math.random()*bucket.length);
+   return bucket.splice(randomIndex, 1)[0];
+}
+
+return map(function(x){
+  return getRandomFromBucket(arr)
+}, _.range(arr.length))
+  
+}
+
+var mixArray = function(arg1, arg2){ // mix 2 arrays preserving order of individual array
+  
+var getRandomFromBucket = function(bucket) {
+   var randomIndex = Math.floor(Math.random()*bucket.length);
+   return bucket.splice(randomIndex, 1)[0];
+}
+
+if (arg1.length == 0){
+  return arg2
+} 
+  
+if (arg2.length == 0){
+  return arg1
+}
+  
+if (typeof(arg1)=="object" && typeof(arg2)=="object") {
+  
+var fullRange = _.range(arg2.length + arg1.length)
+
+var arg1Order = map(function(){
+  getRandomFromBucket(fullRange)}, 
+    _.range(arg1.length)) // get random positions (number of draws based on arg2 length)
+var arg1Order = sort(arg1Order) // sort random positions
+
+var arg2Order = map(function(){
+  getRandomFromBucket(fullRange)}, 
+    _.range(arg2.length)) // get random positions (number of draws based on arg2 length)
+var arg2Order = sort(arg2Order) // sort random positions
+
+var order = multiJoin(arg1Order, arg2Order)
+var value = multiJoin(arg1, arg2)
+
+var order2 = map(function(x){ //get final positions based on default index
+  order.indexOf(x)
+}, _.range(order.length))
+  
+var output = indexSub(value, order2)
+  return output
+
+} else if(typeof(arg1) == "string" && typeof(arg2) == "object"){
+  var ranPos = uniformDraw(_.range(arg2.length+1))
+  return insert(arg2, ranPos, arg1)
+} else if(typeof(arg2) == "string" && typeof(arg1) == "object") { //if p2 is string
+  var ranPos = uniformDraw(_.range(arg1.length+1))
+  return insert(arg1, ranPos, arg2)
+} else {
+  return[arg1, arg2]
+}
+
+}
+
+var multiJoin = function(arg1, arg2){ // concatenate 2 objects/strings
+  
+  if(typeof(arg1)=="object" && typeof(arg2)=="object"){
+    
+    return arg1.concat(arg2)
+    
+  } else if(typeof(arg1) == "string" && typeof(arg2) == "object"){
+  
+  return [arg1].concat(arg2)
+    
+} else if(typeof(arg2) == "string" && typeof(arg1) == "object") { //if arg2 is string
+ 
+  return arg1.concat(arg2)
+  
+} else {
+  return[arg1, arg2]
+}
+  
+}
+
+var insert = function(target, pos, add){ // insert an element into an array at specified position
+  
+  if (typeof(target) == "string"){
+     var p1 = [target].slice(0, pos)
+     var p2 = [target].slice(pos, target.length)
+     var output = p1.concat(add)
+     return output.concat(p2)
+  }else{
+    var p1 = target.slice(0, pos)
+    var p2 = target.slice(pos, target.length)
+    var output = p1.concat(add)
+    return output.concat(p2)
+  }
+}
+
+var inside = function(leftArray, rightArray){ // checks if left inside right
+
+  if(typeof(leftArray) == "string"){
+    return any(function(y){y == leftArray}, rightArray)
+  } else {
+    map(function(x){
+    return any(function(y){x==y}, rightArray)
+  }, leftArray)
+  }
+}
+
+var allInside = function(leftArray, rightArray){ //if all of left inside right return true
+  
+  var result = inside(leftArray, rightArray)
+  if(any(function(x){x == false}, result)){
+    return false
+  }else{
+    return true
+  }
+}
+
+var indexSub = function(input, index){ // indexing
+
+var n = index.length // number of elements to keep
+
+var recurSub = function(input, index, n){
+
+  if (n == 1){ // recursion
+    
+   return input[ index[0] ] // first element subset
+    
+  } else{
+    
+    var firstElement = [ input[index[n-1]] ] //last element subset 
+    var nextElement = recurSub(input,index, n - 1) //next element
+    
+   return firstElement.concat(nextElement) //concatenate 
+  }
+}
+
+var result = recurSub(input, index, n) // save result
+var resultRev = reduce(function(x,acc){
+  acc.concat(x)
+},[],result)
+
+return resultRev // reverse order of array 
+
+}
+
+var normalize = function(array){
+  var arraySum = sum(array)
+  return map(function(x){x/arraySum}, array)
+}
+
+var sum = function(array){
+  reduce(function(x,acc){
+  x+acc
+}, 0, array)
+}
+
+var mean = function(array){
+  return sum(array)/array.length
+}
+
+var planAct = function(belief) { //belief to action
+  
+  // find root logic
+  var belief = cleanOut(belief)
+  var opPos = getRoot(belief, belief.length)
+  
+  if (opPos == belief.length){ //base case
+    return belief
+  } else {
+    
+  // eval root logic
+  var arg1 = belief.slice(0, opPos)
+  var arg2 = belief.slice(opPos+1, belief.length)
+  
+  return evalOp(planAct(arg1), planAct(arg2), belief[opPos])
+  }  
+}
+
+
+var randomAct = function(pool,alpha) {  // randomly sample action
+  var n = Math.floor(sample(Exponential({a:alpha})))
+  if (n == 0){
+    return randomAct(pool, alpha)
+  } else {
+    map(function(x){
+    return uniformDraw(pool)
+  }, _.range(n))
+  }
+}
+
+var neccAct = function(belief){ //draw neccessary actions
+
+var beliefMod = belief.split("(").join("!(!").split(")").join("!)!")
+var beliefMod = beliefMod.split("!")
+var beliefMod = filter(function(x) { return x !== ""; }, beliefMod); 
+
+var actionSeq = planAct(beliefMod)
+
+return actionSeq
+  
+}
+
+var drawOutcome = function(structure, act){ //simulate outcome
+  if(allInside(structure, act)){
+      return 1
+    } else {
+      return 0
+    }
+}
+
+var structureMatch = function(structure, observation){
+ 
+  var outcomeSet = map(function(x){drawOutcome(x, observation)}, structure) 
+
+  var outcome = any(function(x) { return x == 1; }, outcomeSet)
+  return outcome
+  
+}
+
+var convertBool = function(bool){
+  if(bool == true){
+    return 1
+  }else {
+    return 0
+  }
+}
+
+var addOutcomeNoise = function(outcome, noise){ // add noise to outcome probability
+  if(outcome == 1){
+    return 1-noise
+  }else{
+    return noise
+  }
+}
+
+var moderateNoise = function(noise, otherBool, moderation){
+  if(otherBool == 1){ // noise increases when cause is "other"
+    return noise*moderation
+  }else{
+    return noise
+  }
+}
+
+// function to sample from posteror
+var samplePosterior = function(n, posterior, element){
+  map(function() { return sample(editor.get(posterior))[element] }, _.range(n))
+}
+
+// function to approximate HDI
+var approxHDI = function(nsample, nsim, posterior, marginal){
+  return map(function(){listMean(samplePosterior(nsample, posterior, marginal))}, _.range(nsim))
+}
+
+var quantile = function(array, q){
+  var pos = Math.floor(q*(array.length-1))
+  var sortedArray = sort(array)
+  return sortedArray[pos - 1]
+}
+
+///// Specifying Variable Space, Priors, and Parameters /////
+
+
+var belPool = ["(interactBlue)", "(interactPink)", "(interactOrange)", 
+               "((interactBlue)&(interactPink))","((interactBlue)&(interactOrange))","((interactOrange)&(interactPink))",
+              "(((interactBlue)&(interactPink))&(interactOrange))", "(other)"]
+
+var belSet = ["interactBlue", "interactPink", "interactOrange", 
+               "interactBlue&interactPink","interactBlue&interactOrange","interactOrange&interactPink",
+              "interactBlue&interactPink&interactOrange", "other"]
+
+
+// prolific priors (crowdsourced)
+var belPrior = [.142, .060, .129, 
+               .086, .076, .066, 
+                .126, .122
+               ] 
+
+/*
+// college students priors (NUS)
+
+var belPrior = [.1110, .0897, .1167,
+               .1153, .1292, .1287,
+               .1616, .1473]
+*/
+
+
+var causeLambda = 2 // for drawing number of causes
+var causeLambda2 = 1 // for drawing number of causes after observing second event sequence
+var n = 0.02//noise
+var m = 4 //moderation of noise when "others" hypothesis is sampled
+
+
+////// MODELS //////
+
+var epistemicModel = function(){
+	
+  // sample World Causal Structure
+  var structureFull = sample(Categorical({ps: belPrior, vs:belPool}))
+  var structureFull = addBel(structureFull, belPool, causeLambda)
+  var structureSet = splitCause(structureFull)
+  
+  // track when atomic and conjunctive hypotheses are sampled
+  var trackHyp = inside(belSet, structureSet)
+  var blueOnly = convertBool(trackHyp[0])
+  var pinkOnly = convertBool(trackHyp[1])
+  var orangeOnly = convertBool(trackHyp[2])
+  var blueAndPink = convertBool(trackHyp[3])
+  var blueAndOrange = convertBool(trackHyp[4])
+  var orangeAndPink = convertBool(trackHyp[5])
+  var bluePinkOrange = convertBool(trackHyp[6])
+  var other = convertBool(trackHyp[7])
+  
+ 
+// observed event sequence
+
+ // two-event
+var observation1 = [ "moveBlue", "interactBlue" , "movePink", "interactPink", "moveDoor"]
+
+ // three-event
+//var observation1 = [ "moveOrange", "interactOrange", "moveBlue", "interactBlue" ,"movePink",  "interactPink", "moveDoor"]
+
+var structureReq = map(function(x){x.split("&")}, structureSet)
+
+// When "other" causes is sampled, we increase noise by a factor of m (set to 4)
+var otherBool = any(function(x) { return x == "other"; }, structureReq)
+var n = moderateNoise(n, otherBool, m)
+
+var outcomeSet1 = map(function(x){drawOutcome(x, observation1)}, structureReq) 
+
+//as long as one cause is consistent with observation, outcome is likely to be 1
+var outcome1Prob = any(function(x) { return x == 1; }, outcomeSet1)
+var outcome1Prob = addOutcomeNoise(outcome1Prob, n)
+var outcome1 = flip(outcome1Prob)
+
+condition(outcome1==1)  // condition on obseerving door opening
+
+return {
+    blueOnly:blueOnly,
+    pinkOnly:pinkOnly,
+    orangeOnly:orangeOnly,
+    blueAndPink:blueAndPink,
+    blueAndOrange:blueAndOrange ,
+    orangeAndPink:orangeAndPink,
+    bluePinkOrange:bluePinkOrange,
+    other:other,
+    structureFull:structureFull,
+    length: structureSet.length
+       }
+
+}
+
+
+// save model posterior
+var epistemicPosterior = Infer({method: 'MCMC', samples:50000,burn:50000, callbacks: [editor.MCMCProgress()]}, epistemicModel)
+editor.put("epistemicPosterior",epistemicPosterior) //save posterior
+
+var structurePosterior = samplePosterior(5000, "epistemicPosterior", "structureFull")
+
+var structurePosteriorSet = map(function(x){
+    var temp = splitCause(x)
+    return map(function(y){y.split("&")}, temp)
+  }, structurePosterior)
+
+// instrumental performs additional simulations on top of epistemic model
+var instrumentalModel = function(){
+  
+  var structureCandidate = samplePosterior(1, "epistemicPosterior", "structureFull")[0] //draw candidate belief from epistemic model's posterior
+
+  var actSim = neccAct(structureCandidate) // draw action based on candidate belief
+  
+  var structureSet = splitCause(structureCandidate)
+  
+  // track when atomic and conjunctive hypotheses are sampled
+  var trackHyp = inside(belSet, structureSet)
+  var blueOnly = convertBool(trackHyp[0])
+  var pinkOnly = convertBool(trackHyp[1])
+  var orangeOnly = convertBool(trackHyp[2])
+  var blueAndPink = convertBool(trackHyp[3])
+  var blueAndOrange = convertBool(trackHyp[4])
+  var orangeAndPink = convertBool(trackHyp[5])
+  var bluePinkOrange = convertBool(trackHyp[6])
+  var other = convertBool(trackHyp[7])
+  
+  var outcomeSim = map(function(x){structureMatch(x, actSim)}, structurePosteriorSet)
+  var outcomeProb = mean(outcomeSim)
+  var outcomeSimSample = flip(outcomeProb) 
+
+  condition(outcomeSimSample == true) // conditioned on simulated outcome = 1 (to find W that maximizes probability of observing simulated outcome)
+  
+  return{
+    blueOnly:blueOnly,
+    pinkOnly:pinkOnly,
+    orangeOnly:orangeOnly,
+    blueAndPink:blueAndPink,
+    blueAndOrange:blueAndOrange ,
+    orangeAndPink:orangeAndPink,
+    bluePinkOrange:bluePinkOrange,
+    other:other,
+    structureCandidate: structureCandidate,
+    length: structureSet.length
+  }
+  
+}
+
+var instrumentalPosterior = Infer({method: 'MCMC', samples:2000,burn:1000, callbacks: [editor.MCMCProgress()]}, instrumentalModel)
+editor.put("instrumentalPosterior",instrumentalPosterior) //save posterior
+  
+
+// Epistemic Model on observing second event sequence (for repeated-event and varied-event conditions)
+var epistemicModel2 = function(){
+
+  var structureFull = samplePosterior(1,"epistemicPosterior", "structureFull")[0]
+  var structureFull = addBel(structureFull, belPool, causeLambda2)
+  var structureSet = splitCause(structureFull)
+  
+  var trackHyp = inside(belSet, structureSet)
+  var blueOnly = convertBool(trackHyp[0])
+  var pinkOnly = convertBool(trackHyp[1])
+  var orangeOnly = convertBool(trackHyp[2])
+  var blueAndPink = convertBool(trackHyp[3])
+  var blueAndOrange = convertBool(trackHyp[4])
+  var orangeAndPink = convertBool(trackHyp[5])
+  var bluePinkOrange = convertBool(trackHyp[6])
+  var other = convertBool(trackHyp[7])
+ 
+
+//varied-event
+//var observation2 = [ "moveOrange", "interactOrange" , "movePink", "interactPink", "moveDoor"]
+
+//repeated-event
+var observation2 = [ "moveBlue", "interactBlue" ,"movePink" , "interactPink", "moveDoor"]
+
+var structureReq2 = map(function(x){x.split("&")}, structureSet)
+
+var outcomeSet2 = map(function(x){drawOutcomeWithDecay(x, observation2, decay)}, structureReq2) 
+
+var otherBool = any(function(x) { return x == "other"; }, structureReq2)
+var n = moderateNoise(n, otherBool, m)
+
+var outcome2Prob = any(function(x) { return x == 1; }, outcomeSet2)
+var outcome2Prob = stickyPrior(outcome2Prob, weight)
+var outcome2Prob = addOutcomeNoise(outcome2Prob, n)
+var outcome2 = flip(outcome2Prob)
+
+condition(outcome2==1)  // condition on observing door opening
+  
+
+return {
+    blueOnly:blueOnly,
+    pinkOnly:pinkOnly,
+    orangeOnly:orangeOnly,
+    blueAndPink:blueAndPink,
+    blueAndOrange:blueAndOrange ,
+    orangeAndPink:orangeAndPink,
+    bluePinkOrange:bluePinkOrange,
+    other:other,
+    structureFull:structureFull,
+    length: structureSet.length
+       }
+
+}
+
+
+
+var epistemicPosterior2 = Infer({method: 'MCMC', samples:50000,burn:50000, callbacks: [editor.MCMCProgress()]}, epistemicModel2)
+
+editor.put("epistemicPosterior2",epistemicPosterior2) //save posterior
+
+var structurePosterior = samplePosterior(5000, "epistemicPosterior2", "structureFull")
+
+var structurePosteriorSet = map(function(x){
+    var temp = splitCause(x)
+    return map(function(y){y.split("&")}, temp)
+  }, structurePosterior)
+
+
+// Instrumental Model on observing second event sequence (for repeated-event and varied-event conditions)
+// Performs additional simulations on top of epistemic model 2
+
+var instrumentalModel2 = function(){
+  
+  var structureCandidate = samplePosterior(1, "epistemicPosterior2", "structureFull")[0] //draw candidate belief
+
+  var actSim = neccAct(structureCandidate) // draw action based on candidate belief
+  
+  var structureSet = splitCause(structureCandidate)
+  
+  var trackHyp = inside(belSet, structureSet)
+  
+  var blueOnly = convertBool(trackHyp[0])
+  var pinkOnly = convertBool(trackHyp[1])
+  var orangeOnly = convertBool(trackHyp[2])
+  var blueAndPink = convertBool(trackHyp[3])
+  var blueAndOrange = convertBool(trackHyp[4])
+  var orangeAndPink = convertBool(trackHyp[5])
+  var bluePinkOrange = convertBool(trackHyp[6])
+  var other = convertBool(trackHyp[7])
+  
+  var outcomeSim = map(function(x){structureMatch(x, actSim)}, structurePosteriorSet)
+  var outcomeProb = mean(outcomeSim)
+  var outcomeSimSample = flip(outcomeProb) 
+ 
+  condition(outcomeSimSample == true) 
+  
+  return{
+    blueOnly:blueOnly,
+    pinkOnly:pinkOnly,
+    orangeOnly:orangeOnly,
+    blueAndPink:blueAndPink,
+    blueAndOrange:blueAndOrange ,
+    orangeAndPink:orangeAndPink,
+    bluePinkOrange:bluePinkOrange,
+    other:other,
+    structureCandidate: structureCandidate,
+    length: structureSet.length
+  }
+  
+}
+
+var instrumentalPosterior2 = Infer({method: 'MCMC', samples:2000,burn:1000, callbacks: [editor.MCMCProgress()]}, instrumentalModel2)
+editor.put("instrumentalPosterior2",instrumentalPosterior2) //save posterior
+
+
+///// Display Posteriors /////
+
+// normalized posterior
+var epistPost = normalize([listMean(samplePosterior(5000, "epistemicPosterior", "blueOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "pinkOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "orangeOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "blueAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "bluePinkOrange")), 
+                 listMean(samplePosterior(5000, "epistemicPosterior", "other"))
+                          ])
+                
+// unnormalized posterior
+var epistPostRaw = [listMean(samplePosterior(5000, "epistemicPosterior", "blueOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "pinkOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "orangeOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "blueAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "bluePinkOrange")),
+                 listMean(samplePosterior(5000, "epistemicPosterior", "other"))]
+
+
+var instrumPost = normalize([listMean(samplePosterior(5000, "instrumentalPosterior", "blueOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "pinkOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "orangeOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "blueAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "bluePinkOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "other"))])
+
+var instrumPostRaw = [listMean(samplePosterior(5000, "instrumentalPosterior", "blueOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "pinkOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "orangeOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "blueAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "bluePinkOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior", "other"))]
+
+var epistPost2 = normalize([listMean(samplePosterior(5000, "epistemicPosterior2", "blueOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "pinkOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "orangeOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "blueAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "bluePinkOrange")), 
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "other"))
+                          ])
+
+var epistPost2Raw = [listMean(samplePosterior(5000, "epistemicPosterior2", "blueOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "pinkOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "orangeOnly")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "blueAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "bluePinkOrange")),
+                 listMean(samplePosterior(5000, "epistemicPosterior2", "other"))]
+
+
+var instrumPost2 = normalize([listMean(samplePosterior(5000, "instrumentalPosterior2", "blueOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "pinkOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "orangeOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "blueAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "bluePinkOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "other"))])
+
+var instrumPost2Raw = [listMean(samplePosterior(5000, "instrumentalPosterior2", "blueOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "pinkOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "orangeOnly")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "blueAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "blueAndOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "orangeAndPink")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "bluePinkOrange")),
+                 listMean(samplePosterior(5000, "instrumentalPosterior2", "other"))]
+
+
+// sample 1000 samples to estimate HDI
+var conditionN = 1000 
+
+display(instrumPost)
+display(instrumPostRaw)
+
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "blueOnly"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "blueOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "pinkOnly"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "pinkOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "orangeOnly"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "orangeOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "blueAndPink"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "blueAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "blueAndOrange"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "blueAndOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "orangeAndPink"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "orangeAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "bluePinkOrange"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "bluePinkOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "other"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior", "other"), .975)])
+
+
+display(epistPost)
+display(epistPostRaw)
+
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "blueOnly"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "blueOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "pinkOnly"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "pinkOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "orangeOnly"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "orangeOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "blueAndPink"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "blueAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "blueAndOrange"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "blueAndOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "orangeAndPink"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "orangeAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "bluePinkOrange"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "bluePinkOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior", "other"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior", "other"), .975)])
+
+display(instrumPost2)
+display(instrumPost2Raw)
+
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "blueOnly"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "blueOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "pinkOnly"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "pinkOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "orangeOnly"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "orangeOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "blueAndPink"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "blueAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "blueAndOrange"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "blueAndOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "orangeAndPink"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "orangeAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "bluePinkOrange"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "bluePinkOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "other"), .025), quantile(approxHDI(conditionN,5000, "instrumentalPosterior2", "other"), .975)])
+
+
+display(epistPost2)
+display(epistPost2Raw)
+
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "blueOnly"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "blueOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "pinkOnly"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "pinkOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "orangeOnly"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "orangeOnly"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "blueAndPink"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "blueAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "blueAndOrange"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "blueAndOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "orangeAndPink"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "orangeAndPink"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "bluePinkOrange"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "bluePinkOrange"), .975)])
+display([quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "other"), .025), quantile(approxHDI(conditionN,5000, "epistemicPosterior2", "other"), .975)])
+

@@ -1,0 +1,170 @@
+var likelihoodModel = function(){
+
+var samplePosterior = function(n, posterior, element){
+  map(function() { return sample(editor.get(posterior))[element] }, _.range(n))
+}
+
+var approxHDI = function(nsample, nsim, posterior, marginal){
+    return map(function(){listMean(samplePosterior(nsample, posterior, marginal))}, _.range(nsim))
+  }
+  
+var quantile = function(array, q){
+var pos = Math.floor(q*(array.length-1))
+var sortedArray = sort(array)
+return sortedArray[pos - 1]
+}
+  
+
+var epistPost = normalize([listMean(samplePosterior(500, "epistemicPosterior", "blueOnly")),
+                 listMean(samplePosterior(500, "epistemicPosterior", "pinkOnly")),
+                 listMean(samplePosterior(500, "epistemicPosterior", "orangeOnly")),
+                 listMean(samplePosterior(500, "epistemicPosterior", "blueAndPink")),
+                 listMean(samplePosterior(500, "epistemicPosterior", "blueAndOrange")),
+                 listMean(samplePosterior(500, "epistemicPosterior", "orangeAndPink")),
+                 listMean(samplePosterior(500, "epistemicPosterior", "bluePinkOrange")), 
+                 listMean(samplePosterior(500, "epistemicPosterior", "other"))
+                          ])
+
+var instrumPost = normalize([listMean(samplePosterior(500, "instrumentalPosterior", "blueOnly")),
+                 listMean(samplePosterior(500, "instrumentalPosterior", "pinkOnly")),
+                 listMean(samplePosterior(500, "instrumentalPosterior", "orangeOnly")),
+                 listMean(samplePosterior(500, "instrumentalPosterior", "blueAndPink")),
+                 listMean(samplePosterior(500, "instrumentalPosterior", "blueAndOrange")),
+                 listMean(samplePosterior(500, "instrumentalPosterior", "orangeAndPink")),
+                 listMean(samplePosterior(500, "instrumentalPosterior", "bluePinkOrange")), 
+                 listMean(samplePosterior(500, "instrumentalPosterior", "other"))
+                          ])
+
+
+var epistPost2 = normalize([listMean(samplePosterior(500, "epistemicPosterior2", "blueOnly")),
+                 listMean(samplePosterior(500, "epistemicPosterior2", "pinkOnly")),
+                 listMean(samplePosterior(500, "epistemicPosterior2", "orangeOnly")),
+                 listMean(samplePosterior(500, "epistemicPosterior2", "blueAndPink")),
+                 listMean(samplePosterior(500, "epistemicPosterior2", "blueAndOrange")),
+                 listMean(samplePosterior(500, "epistemicPosterior2", "orangeAndPink")),
+                 listMean(samplePosterior(500, "epistemicPosterior2", "bluePinkOrange")), 
+                 listMean(samplePosterior(500, "epistemicPosterior2", "other"))
+                          ])
+
+var instrumPost2 = normalize([listMean(samplePosterior(500, "instrumentalPosterior2", "blueOnly")),
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "pinkOnly")),
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "orangeOnly")),
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "blueAndPink")),
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "blueAndOrange")),
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "orangeAndPink")),
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "bluePinkOrange")), 
+                 listMean(samplePosterior(500, "instrumentalPosterior2", "other"))
+                          ])
+
+
+//B P O BP BO OP BPO Other
+
+// Mean human ratings from Crowdsourced/College samples
+/*
+// Crowdsourced Prolific
+// varied 
+var humanVaried = normalize([0.02649344, 0.25556780, 0.02389604, 0.30535188, 0.05821486, 0.17730446, 0.06743277, 0.08573876])
+    
+// repeat
+var humanRepeat = normalize([0.082302296, 0.160698647, 0.007369615, 0.546989631, 0.030226624, 0.039062077, 0.055386015, 0.077965095])
+  
+// two-event
+var humanTwo = normalize([0.104544245, 0.192461217, 0.001041667, 0.526280224, 0.025642585, 0.012312271, 0.038768763, 0.098949028])
+  
+// three-event
+var humanThree = normalize([0.011828167, 0.169529627, 0.006729772, 0.144898528, 0.112985317, 0.062532412, 0.386518376, 0.104977801])
+*/
+
+
+
+// College NUS
+// varied 
+var humanVaried = normalize([0.03880205, 0.35919614, 0.04148747, 0.18431911, 0.17904986, 0.05414369, 0.06779601, 0.07520567])
+    
+// repeat
+var humanRepeat = normalize([0.08527619, 0.25468551, 0.02248366, 0.42817640, 0.03059182, 0.02945999, 0.06755164, 0.08177478])
+  
+// two-event
+var humanTwo = normalize([0.09172331, 0.24519092, 0.03929604, 0.36820052, 0.04875314, 0.05341561, 0.07347997, 0.07994049])
+  
+// three-event
+var humanThree = normalize([0.04379386, 0.21279947, 0.03704383, 0.16702999, 0.13302987, 0.05372603, 0.28527901, 0.06729795])
+
+// modify this to the appropriate event condition
+var humanBin = humanRepeat
+
+var likelihoodBlueEpist = Gaussian({mu:epistPost2[0], sigma:.1}).score(humanBin[0])
+var likelihoodPinkEpist =  Gaussian({mu:epistPost2[1], sigma:.1}).score(humanBin[1])
+var likelihoodOrangeEpist = Gaussian({mu:epistPost2[2], sigma:.1}).score(humanBin[2])
+var likelihoodBlueAndPinkEpist =  Gaussian({mu:epistPost2[3], sigma:.1}).score(humanBin[3])
+var likelihoodBlueAndOrangeEpist = Gaussian({mu:epistPost2[4], sigma:.1}).score(humanBin[4])
+var likelihoodOrangeAndPinkEpist =  Gaussian({mu:epistPost2[5], sigma:.1}).score(humanBin[5])
+var likelihoodBluePinkOrangeEpist =  Gaussian({mu:epistPost2[6], sigma:.1}).score(humanBin[6])
+var likelihoodOtherEpist =  Gaussian({mu:epistPost2[7], sigma:.1}).score(humanBin[7])
+
+var likelihoodBlueInstrum = Gaussian({mu:instrumPost2[0], sigma:.1}).score(humanBin[0])
+var likelihoodPinkInstrum =  Gaussian({mu:instrumPost2[1], sigma:.1}).score(humanBin[1])
+var likelihoodOrangeInstrum = Gaussian({mu:instrumPost2[2], sigma:.1}).score(humanBin[2])
+var likelihoodBlueAndPinkInstrum =  Gaussian({mu:instrumPost2[3], sigma:.1}).score(humanBin[3])
+var likelihoodBlueAndOrangeInstrum = Gaussian({mu:instrumPost2[4], sigma:.1}).score(humanBin[4])
+var likelihoodOrangeAndPinkInstrum =  Gaussian({mu:instrumPost2[5], sigma:.1}).score(humanBin[5])
+var likelihoodBluePinkOrangeInstrum =  Gaussian({mu:instrumPost2[6], sigma:.1}).score(humanBin[6])
+var likelihoodOtherInstrum =  Gaussian({mu:instrumPost2[7], sigma:.1}).score(humanBin[7])
+
+
+// excluded others since these are normalized ratings
+var bf = Math.exp((likelihoodBlueInstrum + likelihoodPinkInstrum + likelihoodOrangeInstrum+ likelihoodBlueAndPinkInstrum+ likelihoodBlueAndOrangeInstrum+ likelihoodOrangeAndPinkInstrum+ likelihoodBluePinkOrangeInstrum)-
+    (likelihoodBlueEpist + likelihoodPinkEpist + likelihoodOrangeEpist+ likelihoodBlueAndPinkEpist+ likelihoodBlueAndOrangeEpist+ likelihoodOrangeAndPinkEpist+ likelihoodBluePinkOrangeEpist))
+    
+return {
+  bf:bf,
+  likelihoodBlueEpist: likelihoodBlueEpist,
+  likelihoodPinkEpist: likelihoodPinkEpist,
+  likelihoodOrangeEpist: likelihoodOrangeEpist,
+  likelihoodBlueAndPinkEpist: likelihoodBlueAndPinkEpist,
+  likelihoodBlueAndOrangeEpist: likelihoodBlueAndOrangeEpist,
+  likelihoodOrangeAndPinkEpist: likelihoodOrangeAndPinkEpist,
+  likelihoodBluePinkOrangeEpist: likelihoodBluePinkOrangeEpist,
+  likelihoodOtherEpist: likelihoodOtherEpist,
+  likelihoodBlueInstrum: likelihoodBlueInstrum,
+  likelihoodPinkInstrum: likelihoodPinkInstrum,
+  likelihoodOrangeInstrum: likelihoodOrangeInstrum,
+  likelihoodBlueAndPinkInstrum: likelihoodBlueAndPinkInstrum,
+  likelihoodBlueAndOrangeInstrum: likelihoodBlueAndOrangeInstrum,
+  likelihoodOrangeAndPinkInstrum: likelihoodOrangeAndPinkInstrum,
+  likelihoodBluePinkOrangeInstrum: likelihoodBluePinkOrangeInstrum,
+  likelihoodOtherInstrum: likelihoodOtherInstrum
+  
+       }
+
+}
+
+var likelihoodPosterior = Infer({method: 'MCMC', samples:5000,burn:5000, callbacks: [editor.MCMCProgress()]},likelihoodModel)
+
+editor.put("likelihoodPosterior",likelihoodPosterior) //save posterior
+
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "bf")))
+// number of samples drawn to estimate HDI
+var conditionN = 1000
+display([quantile(approxHDI(conditionN,1000, "likelihoodPosterior", "bf"), .025), quantile(approxHDI(conditionN,1000, "likelihoodPosterior", "bf"), .975)])
+
+
+display("Epistemic")
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBlueEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodPinkEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodOrangeEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBlueAndPinkEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBlueAndOrangeEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodOrangeAndPinkEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBluePinkOrangeEpist")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodOtherEpist")))
+display("Instrumental")
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBlueInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodPinkInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodOrangeInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBlueAndPinkInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBlueAndOrangeInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodOrangeAndPinkInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodBluePinkOrangeInstrum")))
+display(listMean(samplePosterior(1000, "likelihoodPosterior", "likelihoodOtherInstrum")))
+
