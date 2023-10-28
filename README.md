@@ -9,3 +9,16 @@ The WebPPL code used to compute the posteriors for the "epistemic + intentionali
 
 ## Bayes Factors Computations
 The WebPPL code used to compute the Bayes Factors to compare different models can be found in "bayes-factor-base.txt" and "bayes-factor-intentionality.txt". The code in these 2 files are similar. However, "bayes-factor-base.txt" was used to compare between the Epistemic and Instrumental Learning Models (Studies 1-3) while "bayes-factor-intentionality.txt" was used to compare models assuming intentionality against their respective baseline models (Study 4). 
+
+## Data and Experimental Stimuli
+The analyzed data (for each study) and video stimuli (shown in each experimental condition) can be found in the "Data" and "Stimuli" folders respectively. The original experimental materials can be found in the following web links:
+*Study 1's Experiment*
+[https://github.com/Instrumental-Causal-Learning-Studies/pcl-study1](https://instrumental-causal-learning-studies.github.io/pcl-study1/)
+*Study 2's Experiment*:
+[https://github.com/Instrumental-Causal-Learning-Studies/pcl-study2](https://instrumental-causal-learning-studies.github.io/pcl-study2/)
+*Study 3's Experiment*:
+[https://github.com/Instrumental-Causal-Learning-Studies/pcl-nus12](https://instrumental-causal-learning-studies.github.io/pcl-nus12/)
+*Study 4's Experiment (Crowdsourced)*:
+[https://instrumental-causal-learning-studies.github.io/pcl-study3/](https://instrumental-causal-learning-studies.github.io/pcl-study3/)
+*Study 4's Experiment (Student)*:
+[https://instrumental-causal-learning-studies.github.io/pcl-nus3/](https://instrumental-causal-learning-studies.github.io/pcl-nus3/)
